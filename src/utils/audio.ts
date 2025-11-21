@@ -3,6 +3,13 @@
 
 let audioCtx: AudioContext | null = null;
 
+// Check if sounds are enabled (will be set by store)
+let soundsEnabled = true;
+
+export const setSoundsEnabled = (enabled: boolean) => {
+  soundsEnabled = enabled;
+};
+
 const initAudio = () => {
   if (!audioCtx && typeof window !== "undefined") {
     const AudioContextClass =
@@ -42,17 +49,20 @@ const createOscillator = (
 };
 
 export const playSelectSound = () => {
+  if (!soundsEnabled) return;
   // High pitched "blip"
   createOscillator(1200, "sine", 0.1, 0.05);
   setTimeout(() => createOscillator(2000, "sine", 0.1, 0.03), 50);
 };
 
 export const playHoverSound = () => {
+  if (!soundsEnabled) return;
   // Low "thrum"
   createOscillator(200, "square", 0.1, 0.02);
 };
 
 export const playEngageSound = () => {
+  if (!soundsEnabled) return;
   // Power up sound
   const ctx = initAudio();
   if (!ctx) return;
@@ -75,6 +85,7 @@ export const playEngageSound = () => {
 };
 
 export const playErrorSound = () => {
+  if (!soundsEnabled) return;
   createOscillator(150, "sawtooth", 0.2, 0.05);
   setTimeout(() => createOscillator(100, "sawtooth", 0.2, 0.05), 100);
 };

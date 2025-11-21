@@ -11,7 +11,10 @@ import {
   Twitter,
   Linkedin,
   Github,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
+import SpotifyPlayer from "./SpotifyPlayer";
 
 const DataRow = ({
   label,
@@ -71,12 +74,33 @@ const SceneIndicator = () => {
   );
 };
 
+const SoundToggle = () => {
+  const { soundEnabled, setSoundEnabled } = useStore();
+
+  return (
+    <button
+      onClick={() => setSoundEnabled(!soundEnabled)}
+      className="text-cyan-500 hover:text-cyan-300 transition-colors duration-300 relative group"
+      title={soundEnabled ? "Disable interaction sounds" : "Enable interaction sounds"}
+    >
+      {soundEnabled ? (
+        <Volume2 size={16} className="md:w-5 md:h-5" />
+      ) : (
+        <VolumeX size={16} className="md:w-5 md:h-5" />
+      )}
+      <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-[10px] bg-black/80 text-cyan-400 rounded border border-cyan-500/30 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+        {soundEnabled ? "SOUNDS ON" : "SOUNDS OFF"}
+      </span>
+    </button>
+  );
+};
+
 const SocialLinks = () => {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-6 pointer-events-auto z-50"
+      className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-6 pointer-events-auto z-50"
     >
       <a
         href="https://x.com/suryansh777777"
@@ -102,6 +126,9 @@ const SocialLinks = () => {
       >
         <Github size={16} className="md:w-5 md:h-5" />
       </a>
+      {/* Sound Toggle */}
+      <div className="h-4 w-px bg-cyan-500/30" />
+      <SoundToggle />
     </motion.div>
   );
 };
@@ -267,6 +294,15 @@ export default function HUD() {
           <p>&gt; Connecting to satellite array...</p>
           <p>&gt; Hand tracking active.</p>
           <p className="text-cyan-300 animate-pulse">&gt; {hudState.message}</p>
+        </motion.div>
+
+        {/* MIDDLE LEFT: Spotify Player */}
+        <motion.div
+          initial={{ opacity: 0, x: -50 }}
+          animate={{ opacity: 1, x: 0 }}
+          className="absolute top-1/2 left-4 md:left-10 -translate-y-1/2 w-48 md:w-72 z-30"
+        >
+          <SpotifyPlayer />
         </motion.div>
 
         {/* CENTER: Reticle */}

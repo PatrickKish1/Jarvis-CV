@@ -37,6 +37,15 @@ This entire codebase was architected and implemented with the assistance of **Ge
 | **Pinch (Two Hands)**              | Scale the hologram up or down    |
 | **Face Camera**                    | Engage Target Lock HUD           |
 
+### 📖 Detailed Gesture Guide
+
+For a complete guide on how to perform each gesture and control the holograms, see **[HAND_GESTURE_CONTROLS.md](./HAND_GESTURE_CONTROLS.md)**
+
+**Quick Reference:**
+- **👌👌 Pinch (Both Hands)** → Move apart to zoom IN, together to zoom OUT
+- **✊ Fist (One Hand)** → Move hand to rotate object
+- **✋ Palm Open (One Hand)** → Swipe left/right to switch scenes
+
 ## 📦 Getting Started
 
 1.  **Clone the repository**

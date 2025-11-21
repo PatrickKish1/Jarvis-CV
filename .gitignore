@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# SAM 3D Backend
+backend/outputs/
+backend/__pycache__/
+backend/*.pyc
+backend/.env

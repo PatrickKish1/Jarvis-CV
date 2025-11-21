@@ -5,11 +5,23 @@ import { useRef } from "react";
 import { Mesh, Group } from "three";
 import { useStore } from "@/store/useStore";
 import { Sphere, Torus, Ring, Icosahedron } from "@react-three/drei";
+import BuildingScene from "./BuildingScene";
 
 function useResponsivePositionAndScale() {
   const { size } = useThree();
+  const { globePosition } = useStore();
   const isMobile = size.width < 768;
-  const position = isMobile ? [0, -0.5, 0] : [-2, 0, 0];
+  
+  // Use dynamic position from store, with base offset
+  const baseX = isMobile ? 0 : -2;
+  const baseY = isMobile ? -0.5 : 0;
+  const baseZ = 0;
+  
+  const position = [
+    baseX + globePosition.x,
+    baseY + globePosition.y,
+    baseZ + globePosition.z,
+  ];
   const scale = isMobile ? 0.6 : 1; // Reduce scale to 60% on mobile
   return { position, scale };
 }
@@ -34,9 +46,12 @@ function ArcReactor({ active }: { active: boolean }) {
     )
       return;
 
-    // Rotation
-    groupRef.current.rotation.x = globeRotation.x * 0.5;
-    groupRef.current.rotation.y = globeRotation.y * 0.5;
+    // Smooth rotation with lerp for more natural movement
+    const targetRotX = globeRotation.x * 0.5;
+    const targetRotY = globeRotation.y * 0.5;
+    
+    groupRef.current.rotation.x += (targetRotX - groupRef.current.rotation.x) * 0.15;
+    groupRef.current.rotation.y += (targetRotY - groupRef.current.rotation.y) * 0.15;
 
     // Animation
     ring1Ref.current.rotation.z += delta * 0.5;
@@ -109,9 +124,13 @@ function EarthScene({ active }: { active: boolean }) {
 
   useFrame((state) => {
     if (!groupRef.current) return;
-    groupRef.current.rotation.x = globeRotation.x;
-    groupRef.current.rotation.y =
-      globeRotation.y + state.clock.elapsedTime * 0.05;
+    
+    // Smooth rotation with lerp
+    const targetRotX = globeRotation.x;
+    const targetRotY = globeRotation.y + state.clock.elapsedTime * 0.05;
+    
+    groupRef.current.rotation.x += (targetRotX - groupRef.current.rotation.x) * 0.15;
+    groupRef.current.rotation.y += (targetRotY - groupRef.current.rotation.y) * 0.15;
 
     const targetScale = active ? globeScale * mobileScale : 0;
     groupRef.current.scale.lerp(
@@ -162,8 +181,13 @@ function SolarSystem({ active }: { active: boolean }) {
 
   useFrame(() => {
     if (!groupRef.current) return;
-    groupRef.current.rotation.x = globeRotation.x * 0.5;
-    groupRef.current.rotation.y = globeRotation.y * 0.5;
+    
+    // Smooth rotation with lerp
+    const targetRotX = globeRotation.x * 0.5;
+    const targetRotY = globeRotation.y * 0.5;
+    
+    groupRef.current.rotation.x += (targetRotX - groupRef.current.rotation.x) * 0.15;
+    groupRef.current.rotation.y += (targetRotY - groupRef.current.rotation.y) * 0.15;
 
     const targetScale = active ? globeScale * mobileScale : 0;
     groupRef.current.scale.lerp(
@@ -225,6 +249,7 @@ export default function GlobeScene() {
         <EarthScene active={activeScene === 1} />
         <SolarSystem active={activeScene === 2} />
       </Canvas>
+      <BuildingScene />
     </div>
   );
 }

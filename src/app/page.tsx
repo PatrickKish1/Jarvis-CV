@@ -2,6 +2,7 @@ import WebcamProcessor from "@/components/WebcamProcessor";
 import GlobeScene from "@/components/GlobeScene";
 import HUD from "@/components/HUD";
 import HandUI from "@/components/HandUI";
+import ImageUploader from "@/components/ImageUploader";
 
 export default function Home() {
   return (
@@ -15,6 +16,7 @@ export default function Home() {
       {/* Top Layer: HUD & Hand Interactions */}
       <HUD />
       <HandUI />
+      <ImageUploader />
     </main>
   );
 }
