@@ -2,7 +2,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import { useStore, GestureType } from "@/store/useStore";
 import {
   playSelectSound,
@@ -13,20 +13,9 @@ import {
 import type { Results as HandsResults } from "@mediapipe/hands";
 import type { Results as FaceMeshResults } from "@mediapipe/face_mesh";
 
-export default function WebcamProcessor() {
+export default React.memo(function WebcamProcessor() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-
-  const {
-    setFaceLandmarks,
-    setHands,
-    setGestures,
-    setGlobeRotation,
-    setGlobeScale,
-    updateHandUI,
-    nextScene,
-    prevScene,
-  } = useStore();
 
   // Gesture state tracking
   const prevHandPos = useRef<{ x: number; y: number } | null>(null);
@@ -102,6 +91,7 @@ export default function WebcamProcessor() {
       camera.start();
 
       function onFaceResults(results: FaceMeshResults) {
+        const { setFaceLandmarks } = useStore.getState();
         if (
           results.multiFaceLandmarks &&
           results.multiFaceLandmarks.length > 0
@@ -136,6 +126,18 @@ export default function WebcamProcessor() {
         let rightHand = null;
         let leftGesture: GestureType = "IDLE";
         let rightGesture: GestureType = "IDLE";
+
+        const { 
+            setHands, 
+            setGestures, 
+            updateHandUI, 
+            setGlobeRotation, 
+            setGlobeScale, 
+            nextScene, 
+            prevScene,
+            cycleTheme,
+            triggerPulse
+        } = useStore.getState();
 
         if (results.multiHandLandmarks) {
           for (const [
@@ -202,12 +204,114 @@ export default function WebcamProcessor() {
           else playSelectSound();
         }
 
-        prevGestureLeft.current = leftGesture;
-        prevGestureRight.current = rightGesture;
-
         setHands(leftHand, rightHand);
         setGestures(leftGesture, rightGesture);
-        processInteraction(leftHand, rightHand, leftGesture, rightGesture);
+        
+        // Process Interaction
+        const now = Date.now();
+
+        // 1. Scaling with two hands (Pinch or Open Palm)
+        if (leftHand && rightHand) {
+          const leftIndex = leftHand[8];
+          const rightIndex = rightHand[8];
+          const dist = Math.hypot(
+            leftIndex.x - rightIndex.x,
+            leftIndex.y - rightIndex.y
+          );
+
+          if (prevPinchDist.current !== null) {
+            const delta = dist - prevPinchDist.current;
+            if (Math.abs(delta) > 0.01) {
+              setGlobeScale(
+                Math.max(
+                  0.5,
+                  Math.min(3, useStore.getState().globeScale + delta * 2)
+                )
+              );
+            }
+          }
+          prevPinchDist.current = dist;
+        } else {
+          prevPinchDist.current = null;
+        }
+
+        // 2. Swipe Detection (PALM_OPEN)
+        // Use right hand for swipe
+        const swipeHand = rightHand || leftHand;
+        const swipeGesture = rightHand ? rightGesture : leftGesture;
+
+        if (swipeHand && swipeGesture === "PALM_OPEN") {
+          const centroid = { x: swipeHand[9].x, y: swipeHand[9].y };
+
+          if (prevHandPos.current) {
+            const deltaX = centroid.x - prevHandPos.current.x;
+
+            // Threshold for swipe
+            if (Math.abs(deltaX) > 0.15 && now - swipeCooldown.current > 1000) {
+              if (deltaX > 0) {
+                // Swipe Right (move hand left to right) -> Previous Scene
+                prevScene();
+                playHoverSound();
+              } else {
+                // Swipe Left (move hand right to left) -> Next Scene
+                nextScene();
+                playHoverSound();
+              }
+              swipeCooldown.current = now;
+            }
+          }
+          prevHandPos.current = centroid;
+        }
+
+        // 3. Rotation with 'GRAB' gesture (Right Hand primarily)
+        const activeHand =
+          rightGesture === "GRAB"
+            ? rightHand
+            : leftGesture === "GRAB"
+            ? leftHand
+            : null;
+
+        if (activeHand) {
+          const centroid = { x: activeHand[9].x, y: activeHand[9].y };
+
+          if (prevHandPos.current) {
+            const deltaX = centroid.x - prevHandPos.current.x;
+            const deltaY = centroid.y - prevHandPos.current.y;
+
+            const currentRot = useStore.getState().globeRotation;
+            setGlobeRotation({
+              x: currentRot.x + deltaY * 8,
+              y: currentRot.y + deltaX * 8,
+            });
+          }
+          prevHandPos.current = centroid;
+        } else {
+          // If not grabbing, and not swiping (handled above), reset
+          if (!activeHand && (!swipeHand || swipeGesture !== "PALM_OPEN")) {
+            prevHandPos.current = null;
+          }
+        }
+
+        // 4. Theme Shifter (VICTORY)
+        // Use left hand for theme shifting to avoid conflict with rotation/swipe
+        if (leftGesture === "VICTORY" && prevGestureLeft.current !== "VICTORY") {
+           cycleTheme();
+           playSelectSound();
+        }
+
+        // 5. Neural Pulse (PALM_OPEN)
+        // Trigger pulse if palm is open and NOT swiping (stationary)
+        // We use a simple check: if gesture is PALM_OPEN and we haven't swiped recently
+        if ((leftGesture === "PALM_OPEN" || rightGesture === "PALM_OPEN") && 
+            now - swipeCooldown.current > 500) {
+            // Rate limit pulse
+             if (Math.random() < 0.1) { // 10% chance per frame to trigger pulse while holding open
+                triggerPulse();
+             }
+        }
+
+        prevGestureLeft.current = leftGesture;
+        prevGestureRight.current = rightGesture;
 
         canvasCtx.restore();
       }
@@ -311,100 +415,6 @@ export default function WebcamProcessor() {
 
         return "IDLE";
       }
-
-      function processInteraction(
-        left: any[] | null,
-        right: any[] | null,
-        leftGesture: GestureType,
-        rightGesture: GestureType
-      ) {
-        const now = Date.now();
-
-        // 1. Scaling with two hands (Pinch or Open Palm)
-        if (left && right) {
-          const leftIndex = left[8];
-          const rightIndex = right[8];
-          const dist = Math.hypot(
-            leftIndex.x - rightIndex.x,
-            leftIndex.y - rightIndex.y
-          );
-
-          if (prevPinchDist.current !== null) {
-            const delta = dist - prevPinchDist.current;
-            if (Math.abs(delta) > 0.01) {
-              setGlobeScale(
-                Math.max(
-                  0.5,
-                  Math.min(3, useStore.getState().globeScale + delta * 2)
-                )
-              );
-            }
-          }
-          prevPinchDist.current = dist;
-        } else {
-          prevPinchDist.current = null;
-        }
-
-        // 2. Swipe Detection (PALM_OPEN)
-        // Use right hand for swipe
-        const swipeHand = right || left;
-        const swipeGesture = right ? rightGesture : leftGesture;
-
-        if (swipeHand && swipeGesture === "PALM_OPEN") {
-          const centroid = { x: swipeHand[9].x, y: swipeHand[9].y };
-
-          if (prevHandPos.current) {
-            const deltaX = centroid.x - prevHandPos.current.x;
-
-            // Threshold for swipe
-            if (Math.abs(deltaX) > 0.15 && now - swipeCooldown.current > 1000) {
-              if (deltaX > 0) {
-                // Swipe Right (move hand left to right) -> Previous Scene
-                prevScene();
-                playHoverSound();
-              } else {
-                // Swipe Left (move hand right to left) -> Next Scene
-                nextScene();
-                playHoverSound();
-              }
-              swipeCooldown.current = now;
-            }
-          }
-          // We just ensure we are not grabbing
-          // Note: swipeGesture is 'PALM_OPEN' here, so it can't be 'GRAB',
-          // but we update position for the next frame's velocity calculation.
-          prevHandPos.current = centroid;
-        }
-
-        // 3. Rotation with 'GRAB' gesture (Right Hand primarily)
-        const activeHand =
-          rightGesture === "GRAB"
-            ? right
-            : leftGesture === "GRAB"
-            ? left
-            : null;
-
-        if (activeHand) {
-          const centroid = { x: activeHand[9].x, y: activeHand[9].y };
-
-          if (prevHandPos.current) {
-            const deltaX = centroid.x - prevHandPos.current.x;
-            const deltaY = centroid.y - prevHandPos.current.y;
-
-            const currentRot = useStore.getState().globeRotation;
-            setGlobeRotation({
-              x: currentRot.x + deltaY * 5,
-              y: currentRot.y + deltaX * 5,
-            });
-          }
-          prevHandPos.current = centroid;
-        } else {
-          // If not grabbing, and not swiping (handled above), reset
-          if (!activeHand && (!swipeHand || swipeGesture !== "PALM_OPEN")) {
-            prevHandPos.current = null;
-          }
-        }
-      }
     };
 
     initMediaPipe();
@@ -414,16 +424,7 @@ export default function WebcamProcessor() {
       if (hands) (hands as any).close();
       if (faceMesh) (faceMesh as any).close();
     };
-  }, [
-    nextScene,
-    prevScene,
-    setFaceLandmarks,
-    setGestures,
-    setGlobeRotation,
-    setGlobeScale,
-    setHands,
-    updateHandUI,
-  ]);
+  }, []);
 
   return (
     <div className="fixed inset-0 z-0">
@@ -436,4 +437,4 @@ export default function WebcamProcessor() {
       />
     </div>
   );
-}
+});

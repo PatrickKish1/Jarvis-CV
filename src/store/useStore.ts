@@ -55,6 +55,10 @@ interface StoreState {
     right: HandUI;
   };
 
+  // Neural State
+  theme: "CYBER" | "SOLAR" | "MATRIX" | "FROST";
+  pulseTrigger: number; // Timestamp
+
   // Actions
   setFaceLandmarks: (landmarks: FaceLandmark[] | null) => void;
   setHands: (left: HandLandmark[] | null, right: HandLandmark[] | null) => void;
@@ -65,7 +69,14 @@ interface StoreState {
   prevScene: () => void;
   updateHUD: (updates: Partial<HUDState>) => void;
   updateHandUI: (hand: "left" | "right", data: Partial<HandUI>) => void;
+  
+  // Neural Actions
+  setTheme: (theme: "CYBER" | "SOLAR" | "MATRIX" | "FROST") => void;
+  cycleTheme: () => void;
+  triggerPulse: () => void;
 }
+
+const THEME_ORDER = ["CYBER", "SOLAR", "MATRIX", "FROST"] as const;
 
 export const useStore = create<StoreState>((set) => ({
   faceLandmarks: null,
@@ -91,15 +102,19 @@ export const useStore = create<StoreState>((set) => ({
     right: { visible: false, x: 0, y: 0, gesture: "IDLE" },
   },
 
+  // Neural Defaults
+  theme: "CYBER",
+  pulseTrigger: 0,
+
   setFaceLandmarks: (landmarks) => set({ faceLandmarks: landmarks }),
   setHands: (left, right) => set({ leftHand: left, rightHand: right }),
   setGestures: (left, right) => set({ leftGesture: left, rightGesture: right }),
   setGlobeRotation: (rotation) => set({ globeRotation: rotation }),
   setGlobeScale: (scale) => set({ globeScale: scale }),
   nextScene: () =>
-    set((state) => ({ activeScene: (state.activeScene + 1) % 3 })),
+    set((state) => ({ activeScene: (state.activeScene + 1) % 4 })),
   prevScene: () =>
-    set((state) => ({ activeScene: (state.activeScene - 1 + 3) % 3 })),
+    set((state) => ({ activeScene: (state.activeScene - 1 + 4) % 4 })),
   updateHUD: (updates) =>
     set((state) => ({ hudState: { ...state.hudState, ...updates } })),
   updateHandUI: (hand, data) =>
@@ -109,4 +124,12 @@ export const useStore = create<StoreState>((set) => ({
         [hand]: { ...state.handUiData[hand], ...data },
       },
     })),
+    
+  setTheme: (theme) => set({ theme }),
+  cycleTheme: () => set((state) => {
+    const currentIndex = THEME_ORDER.indexOf(state.theme);
+    const nextIndex = (currentIndex + 1) % THEME_ORDER.length;
+    return { theme: THEME_ORDER[nextIndex] };
+  }),
+  triggerPulse: () => set({ pulseTrigger: Date.now() }),
 }));
